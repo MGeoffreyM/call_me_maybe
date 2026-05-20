@@ -8,10 +8,24 @@ import argparse
 import json
 import sys
 import os
+import logging
 import numpy as np
 from llm_sdk import Small_LLM_Model
 from .parser import Parser, Function
 from .constrainer import JsonConstraint, JsonState
+
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(name)s | %(levelname)-8s | %(message)s",
+    datefmt="%H:%M:%S",
+    handlers=[
+        logging.FileHandler("call_me_maybe.log", encoding="utf-8"),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+
+logger = logging.getLogger(__name__)
 
 
 def functions_formatter(functions: list[Function]) -> str:
@@ -77,7 +91,7 @@ def main() -> None:
     args = cli_parser.parse_args()
     model = Small_LLM_Model(device=args.device)
     mode_calcul = args.device.upper() if args.device else "AUTOMATIQUE"
-    print(f"Matériel utilisé pour l'IA : {mode_calcul}")
+    logger.info(f"Matériel utilisé pour l'IA : {mode_calcul}")
     # {model._device.upper()}
     parser = Parser()
     parser.read_files(args.functions_definition, args.input)
@@ -145,9 +159,8 @@ def main() -> None:
             }
             results.append(ordered_json)
         except (json.JSONDecodeError, ValueError) as e:
-            print(
-                f"\033[1;31mErreur : JSON invalide ({e}):\n"
-                f"{generated_json}\033[0m", file=sys.stderr)
+            logger.error(f"\033[1;31mErreur : JSON invalide ({e}):\n"
+                         f"{generated_json}\033[0m")
             continue
 
     try:
@@ -156,10 +169,11 @@ def main() -> None:
             os.makedirs(output_dir, exist_ok=True)
         with open(args.output, 'w', encoding='utf-8') as f:
             json.dump(results, f, indent=2)
-        print(f"\n✅ {len(results)} résultats sauvegardés dans {args.output}")
+        logger.info(f"{len(results)} résultats sauvegardés dans "
+                    f"{args.output}")
     except IOError as e:
-        print("\033[1;31mErreur d'écriture dans le fichier de sortie: "
-              f"{e}\033[0m", file=sys.stderr)
+        logger.error("\033[1;31mErreur d'écriture dans le fichier de sortie: "
+                     f"{e}\033[0m")
         sys.exit(1)
 
 

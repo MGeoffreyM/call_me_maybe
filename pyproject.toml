@@ -3,16 +3,15 @@ name = "call-me-maybe"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.13"
 dependencies = [
     "accelerate>=1.13.0",
     "flake8>=7.3.0",
-    "huggingface-hub>=1.15.0",
+    "llm-sdk",
     "mypy>=2.1.0",
     "numpy>=2.4.4",
     "pydantic>=2.13.4",
-    "torch>=2.12.0",
-    "transformers>=5.8.1",
+    "pytest>=9.0.3",
 ]
 
 [tool.mypy]
@@ -23,3 +22,16 @@ exclude = [
 [[tool.mypy.overrides]]
 module = "llm_sdk.*"
 ignore_errors = true
+
+[tool.pytest.ini_options]
+pythonpath = [
+  "."
+]
+
+[tool.uv.workspace]
+members = [
+    "llm_sdk",
+]
+
+[tool.uv.sources]
+llm-sdk = { workspace = true }

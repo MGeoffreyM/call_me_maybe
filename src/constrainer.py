@@ -7,11 +7,15 @@ fournies.
 
 import sys
 import json
+import logging
 from enum import Enum, auto
 from typing import Any
 import numpy as np
 from pydantic import BaseModel, Field, model_validator
 from .parser import Function
+
+
+logger = logging.getLogger(__name__)
 
 
 class JsonState(Enum):
@@ -53,8 +57,7 @@ class JsonConstraint(BaseModel):
                 vocab = json.load(f)
 
         except FileNotFoundError as e:
-            print(f'\033[1;31mVocab Loading Error: {e}\033[0m',
-                  file=sys.stderr)
+            logger.critical(f'\033[1;31mVocab Loading Error: {e}\033[0m')
             sys.exit(1)
 
         func_names: list[str] = []
@@ -100,7 +103,7 @@ class JsonConstraint(BaseModel):
         match self.current_state:
             case JsonState.EXPECT_BRACE_OPEN:
                 id_brace = self.json_symbols.get('{')
-                if id_brace:
+                if id_brace is not None:
                     logits_contraints[id_brace] = logits[id_brace]
                 return logits_contraints
 
@@ -147,7 +150,7 @@ class JsonConstraint(BaseModel):
             case JsonState.EXPECT_PARAM_KEY:
                 if len(self.remaining_params) == 0:
                     id_brace = self.json_symbols.get('}')
-                    if id_brace:
+                    if id_brace is not None:
                         logits_contraints[id_brace] = logits[id_brace]
                 valid_targets = [
                     f'"{k}"' for k in self.remaining_params.keys()]
@@ -183,9 +186,11 @@ class JsonConstraint(BaseModel):
                     if has_digit:
                         id_virgule = self.json_symbols.get(',')
                         id_brace = self.json_symbols.get('}')
-                        if len(self.remaining_params) > 1 and id_virgule:
+                        if len(self.remaining_params) > 1 and id_virgule \
+                                is not None:
                             logits_contraints[id_virgule] = logits[id_virgule]
-                        elif len(self.remaining_params) == 1 and id_brace:
+                        elif len(self.remaining_params) == 1 and id_brace\
+                                is not None:
                             logits_contraints[id_brace] = logits[id_brace]
 
                 elif self.current_param_type == 'string':
@@ -203,16 +208,16 @@ class JsonConstraint(BaseModel):
                 id_virgule = self.json_symbols.get(',')
                 id_brace = self.json_symbols.get('}')
 
-                if len(self.remaining_params) > 0 and id_virgule:
+                if len(self.remaining_params) > 0 and id_virgule is not None:
                     logits_contraints[id_virgule] = logits[id_virgule]
-                elif len(self.remaining_params) == 0 and id_brace:
+                elif len(self.remaining_params) == 0 and id_brace is not None:
                     logits_contraints[id_brace] = logits[id_brace]
 
                 return logits_contraints
 
             case JsonState.EXPECT_END_BRACE:
                 id_brace = self.json_symbols.get('}')
-                if id_brace:
+                if id_brace is not None:
                     logits_contraints[id_brace] = logits[id_brace]
                 return logits_contraints
 

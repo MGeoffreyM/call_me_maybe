@@ -7,7 +7,11 @@ Gère la lecture et la validation stricte des fichiers JSON d'entrée
 from __future__ import annotations
 import json
 import sys
+import logging
 from pydantic import BaseModel, TypeAdapter, Field
+
+
+logger = logging.getLogger(__name__)
 
 
 class ParameterProperty(BaseModel):
@@ -53,6 +57,5 @@ class Parser(BaseModel):
                     list[Prompt]).validate_python(data_prompt)
 
         except Exception as e:
-            # Sortie contrôlée pour respecter la règle "ne doit jamais planter"
-            print(f'\033[1;31mParsing Error: {e}\033[0m', file=sys.stderr)
+            logger.critical(f'\033[1;31mParsing Error: {e}\033[0m')
             sys.exit(1)

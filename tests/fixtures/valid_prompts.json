@@ -1,0 +1,11 @@
+[
+  {
+    "prompt": "What is the sum of 42 and 84?"
+  },
+  {
+    "prompt": "Say hello to Alice."
+  },
+  {
+    "prompt": "Create an admin user profile for Bob with the roles 'dev' and 'ops'."
+  }
+]
