@@ -5,8 +5,21 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "accelerate>=1.13.0",
     "flake8>=7.3.0",
+    "huggingface-hub>=1.15.0",
     "mypy>=2.1.0",
     "numpy>=2.4.4",
     "pydantic>=2.13.4",
+    "torch>=2.12.0",
+    "transformers>=5.8.1",
 ]
+
+[tool.mypy]
+exclude = [
+    "^llm_sdk/"
+]
+
+[[tool.mypy.overrides]]
+module = "llm_sdk.*"
+ignore_errors = true

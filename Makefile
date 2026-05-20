@@ -3,16 +3,18 @@
 #                                                         :::      ::::::::    #
 #    Makefile                                           :+:      :+:    :+:    #
 #                                                     +:+ +:+         +:+      #
-#    By: gematura <gematura@student.42.fr>          +#+  +:+       +#+         #
+#    By: geoffrey <geoffrey@student.42.fr>          +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2026/05/15 12:07:08 by gematura          #+#    #+#              #
-#    Updated: 2026/05/15 12:24:52 by gematura         ###   ########.fr        #
+#    Updated: 2026/05/20 10:32:22 by geoffrey         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
 BLUE = \033[1;34m
 GREEN = \033[1;32m
 RESET = \033[0m
+
+ARGS ?=
 
 .PHONY: install run debug clean lint lint-strict
 
@@ -22,11 +24,10 @@ install:
 
 run:
 	@printf '$(BLUE)Lancement de Call me Maybe...$(RESET)\n'
-	uv run python -m src [--functions_definition ...] [--input ...] [--output ...]
-
+	uv run python -m src $(ARGS)
 debug:
 	@printf '$(BLUE)Lancement en mode debug...$(RESET)\n'
-	uv run python -m src [--functions_definition ...] [--input ...] [--output ...]
+	uv run python -m pdb -m src $(ARGS)
 
 clean:
 	@printf '$(BLUE)Nettoyage des fichiers temporaires...$(RESET)\n'
@@ -36,12 +37,12 @@ clean:
 
 fclean: clean
 	@printf "$(BLUE)Suppression de l'environnement virtuel...$(RESET)\n"
-	rm -rf .venv
-
+	rm -rf .venv data/output
+		
 lint:
 	@printf '$(BLUE)Lancement de flake8...$(RESET)\n'
 	uv run flake8 .
-	@printf '$(BLUE)Lancement de mypy (règles du sujet)...$(RESET)\n'
+	@printf '$(BLUE)Lancement de mypy ...$(RESET)\n'
 	uv run mypy --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs .
 	@printf '$(GREEN)MYPY et Flake8 terminés. Aucune erreur trouvée.$(RESET)\n'
 

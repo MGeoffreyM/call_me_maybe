@@ -1,60 +1,58 @@
+"""Module de parsing pour Call Me Maybe.
+
+Gère la lecture et la validation stricte des fichiers JSON d'entrée
+(définitions de fonctions et prompts de test) en utilisant Pydantic.
+"""
+
+from __future__ import annotations
 import json
-from enum import Enum
-from pydantic import BaseModel, Field
+import sys
+from pydantic import BaseModel, TypeAdapter, Field
 
 
-class types(Enum):
-    INT = 'number'
-    STR = 'string'
-    BOOL = 'true' or 'false'
+class ParameterProperty(BaseModel):
+    """Propriétés d'un paramètre de fonction (ex: type)."""
+    type: str
 
 
-class params(Enum):
-    NAME = 'name'
-    DESCRIPTION = 'description'
-    PARAMETER = 'parameters'
-    RETURN = 'returns'
-    TYPE = 'type'
-
-
-class Fonction(BaseModel):
+class Function(BaseModel):
+    """Modèle représentant la définition d'une fonction appelable."""
     name: str = ''
     description: str = ''
-    args: dict[str, type] = Field(default_factory=dict)
-    result: dict[str, type] = Field(default_factory=dict)
+    parameters: dict[str, ParameterProperty]
+    returns: ParameterProperty
+
+
+class Prompt(BaseModel):
+    """Modèle représentant une requête utilisateur de test."""
+    prompt: str
 
 
 class Parser(BaseModel):
-    list_fonction: list[Fonction] = Field(default_factory=list)
+    """Classe principale de chargement des données d'entrée."""
+    list_function: list[Function] = Field(default_factory=list)
+    list_prompt: list[Prompt] = Field(default_factory=list)
 
-    def read_file(self, file: str) -> None:
-        with open(file, 'r') as f:
-            data = json.load(f)
-        # return data
-        for values in data:
-            nm = ''
-            desc = ''
-            arg = {}
-            res = {}
-            for key, value in values.items():
-                if key == params.NAME:
-                    nm = value.strip('\"')
-                elif key == params.DESCRIPTION:
-                    desc = value.strip('\"')
-                elif key == params.PARAMETER:
-                    for a, b in value.items():
-                        _, c = b.split(':').strip('\" ')
-                        if b == types.INT:
-                            arg[a] = int
-                        elif b == types.STR:
-                            arg[a] = str
-                        elif b == types.BOOL:
-                            arg[a] = bool
-                elif key == params.RETURN:
-                    for a, b in value.items():
-                        res[a] = b.split(':', 1).strip('\" ')
-            self.list_fonction.append(Fonction(name=nm,
-                                               description=desc,
-                                               args=arg,
-                                               result=res))
+    def read_files(self, func_file: str, input_file: str) -> None:
+        """Lit et valide les fichiers d'entrée JSON.
 
+        Args:
+            func_file: Le chemin vers le fichier de définition des fonctions.
+            input_file: Le chemin vers le fichier des requêtes utilisateurs.
+
+        """
+        try:
+            with open(func_file, 'r', encoding='utf-8') as f:
+                data_func = json.load(f)
+                self.list_function = TypeAdapter(
+                    list[Function]).validate_python(data_func)
+
+            with open(input_file, 'r', encoding='utf-8') as f:
+                data_prompt = json.load(f)
+                self.list_prompt = TypeAdapter(
+                    list[Prompt]).validate_python(data_prompt)
+
+        except Exception as e:
+            # Sortie contrôlée pour respecter la règle "ne doit jamais planter"
+            print(f'\033[1;31mParsing Error: {e}\033[0m', file=sys.stderr)
+            sys.exit(1)
