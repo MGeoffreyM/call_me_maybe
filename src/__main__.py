@@ -27,6 +27,25 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+MODEL_PROFILES = {
+    "Qwen/Qwen3-0.6B": {
+        "prompt_template": "Extract the request into a JSON function call."
+                           "\nTools:\n{tools}\nRequest: {prompt}\nJSON:\n"
+    },
+    "bigscience/bloomz-560m": {
+        "prompt_template": "Instruction: Extract the user request into a JSON"
+                           " function call using these tools.\n\nTools:\n"
+                           "{tools}\n\nUser request: {prompt}\n\nJSON output:"
+                           "\n"
+    },
+    "HuggingFaceTB/SmolLM2-360M-Instruct": {
+        "prompt_template": "<|im_start|>system\nYou are a helpful assistant. "
+                           "Extract"" the user request into a JSON function "
+                           "call.\n\nTools:\n{tools}<|im_end|>\n<|im_start|>"
+                           "user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
+    }
+}
+
 
 def functions_formatter(functions: list[Function]) -> str:
     """Formate la liste des fonctions disponibles pour le prompt système.
@@ -51,57 +70,68 @@ def functions_formatter(functions: list[Function]) -> str:
 
 
 def build_system_prompt(user_prompt: str,
-                        available_functions: list[Function]) -> str:
-    """Construit le prompt textuel envoyé au llm.
+                        available_functions: list[Function],
+                        model_name: str = "Qwen/Qwen3-0.6B") -> str:
+    """Construit le prompt textuel adapté au modèle choisi.
 
     Args:
         user_prompt (str): La requête initiale en langage naturel.
         available_functions (list[Function]): Liste des fonctions autorisées.
+        model_name (str): Le nom du modèle en cours d'utilisation.
 
     Returns:
-        str: Le prompt formaté intégrant les instructions et outils.
+        str: Le prompt formaté intégrant les instructions et outils
+        spécifiques.
     """
-    prompt = "Extract the request into a JSON function call.\nTools:\n"
-    prompt += functions_formatter(available_functions)
-    prompt += f"\nRequest: {user_prompt}\nJSON:\n"
+    # Récupère le profil du modèle ou se rabat sur Qwen par défaut
+    profile = MODEL_PROFILES.get(model_name, MODEL_PROFILES["Qwen/Qwen3-0.6B"])
 
-    return prompt
+    tools_str = functions_formatter(available_functions)
+
+    # Injecte dynamiquement les variables dans le template
+    full_prompt = profile["prompt_template"].format(
+        tools=tools_str,
+        prompt=user_prompt
+    )
+
+    return full_prompt
 
 
 def main() -> None:
     """Fonction principale d'exécution du pipeline de bout en bout."""
     cli_parser = argparse.ArgumentParser(
         description='Call Me Maybe - Function Calling LLM')
-    cli_parser.add_argument('--functions_definition',
-                            type=str,
+    cli_parser.add_argument('--functions_definition', type=str,
                             default='data/input/functions_definition.json')
-    cli_parser.add_argument('--input',
-                            type=str,
+    cli_parser.add_argument('--input', type=str,
                             default='data/input/function_calling_tests.json')
     cli_parser.add_argument(
         '--output', type=str,
         default='data/output/function_calling_results.json')
-    cli_parser.add_argument('--device',
-                            type=str,
-                            default=None,
-                            choices=['cpu', 'cuda', 'mps'],
-                            help="Forcer le matériel de calcul "
-                            "(cpu, cuda, mps). Automatique par défaut.")
+    cli_parser.add_argument(
+        '--model', type=str, default='Qwen/Qwen3-0.6B',
+        help="HuggingFace model ID (ex: TinyLlama/TinyLlama-1.1B-Chat-v1.0)")
+    cli_parser.add_argument(
+        '--device', type=str, default=None, choices=['cpu', 'cuda', 'mps'],
+        help="Forcer le matériel de calcul (cpu, cuda, mps).")
 
     args = cli_parser.parse_args()
-    model = Small_LLM_Model(device=args.device)
+
+    model = Small_LLM_Model(model_name=args.model,
+                            device=args.device)
     mode_calcul = args.device.upper() if args.device else "AUTOMATIQUE"
     logger.info(f"Matériel utilisé pour l'IA : {mode_calcul}")
     # {model._device.upper()}
+
     parser = Parser()
     parser.read_files(args.functions_definition, args.input)
 
-    vocab_path = model.get_path_to_vocab_file()
+    vocab_path = model.get_path_to_tokenizer_file()
     results = []
 
     constrainer = JsonConstraint(
         vocab_path=vocab_path,
-        allowed_functions=parser.list_function
+        allowed_functions=parser.list_function,
     )
 
     for prompt_obj in parser.list_prompt:
@@ -110,7 +140,9 @@ def main() -> None:
 
         constrainer.reset()
         input_tensor = model.encode(
-            build_system_prompt(prompt_text, constrainer.allowed_functions))
+            build_system_prompt(prompt_text,
+                                constrainer.allowed_functions,
+                                args.model))
         input_ids = input_tensor[0].tolist()
 
         generated_json = ""

@@ -6,7 +6,7 @@
 #    By: geoffrey <geoffrey@student.42.fr>          +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2026/05/15 12:07:08 by gematura          #+#    #+#              #
-#    Updated: 2026/05/20 22:28:17 by geoffrey         ###   ########.fr        #
+#    Updated: 2026/05/21 00:35:53 by geoffrey         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -24,7 +24,18 @@ install:
 
 run:
 	@printf '$(BLUE)Lancement de Call me Maybe...$(RESET)\n'
+	@printf '$(GREEN)Utilisation du modèle: Qwen/Qwen3-0.6B (par defaut)$(RESET)\n'
 	uv run python -m src $(ARGS)
+
+run-bloomz:
+	@printf '$(BLUE)Lancement de Call me Maybe...$(RESET)\n'
+	@printf '$(GREEN)Utilisation du modèle: bigscience/bloomz-560m$(RESET)\n'
+	uv run python -m src --model "bigscience/bloomz-560m"$(ARGS)
+
+run-smollm2:
+	@printf '$(BLUE)Lancement de Call me Maybe...$(RESET)\n'
+	@printf '$(GREEN)Utilisation du modèle: HuggingFaceTB/SmolLM2-360M-Instruct$(RESET)\n'
+	uv run python -m src --model HuggingFaceTB/SmolLM2-360M-Instruct $(ARGS)
 
 debug:
 	@printf '$(BLUE)Lancement en mode debug...$(RESET)\n'
