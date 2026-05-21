@@ -9,23 +9,16 @@ import json
 import sys
 import os
 import logging
+from typing import cast
 import numpy as np
 from llm_sdk import Small_LLM_Model
+from .log_config import setup_logging, AppLogger
 from .parser import Parser, Function
 from .constrainer import JsonConstraint, JsonState
 
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(name)s | %(levelname)-8s | %(message)s",
-    datefmt="%H:%M:%S",
-    handlers=[
-        logging.FileHandler("call_me_maybe.log", encoding="utf-8"),
-        logging.StreamHandler(sys.stdout)
-    ]
-)
-
 logger = logging.getLogger(__name__)
+prod_logger = cast(AppLogger, logging.getLogger("production"))
 
 MODEL_PROFILES = {
     "Qwen/Qwen3-0.6B": {
@@ -99,11 +92,14 @@ def build_system_prompt(user_prompt: str,
 
 def main() -> None:
     """Fonction principale d'exécution du pipeline de bout en bout."""
+
+    setup_logging(console_level=logging.INFO)
+
     cli_parser = argparse.ArgumentParser(
         description='Call Me Maybe - Function Calling LLM')
-    cli_parser.add_argument('--functions_definition', type=str,
+    cli_parser.add_argument('--input_functions', type=str,
                             default='data/input/functions_definition.json')
-    cli_parser.add_argument('--input', type=str,
+    cli_parser.add_argument('--input_prompt', type=str,
                             default='data/input/function_calling_tests.json')
     cli_parser.add_argument(
         '--output', type=str,
@@ -120,11 +116,13 @@ def main() -> None:
     model = Small_LLM_Model(model_name=args.model,
                             device=args.device)
     mode_calcul = args.device.upper() if args.device else "AUTOMATIQUE"
+
+    logger.info(f"Modèle chargé : {args.model}")
     logger.info(f"Matériel utilisé pour l'IA : {mode_calcul}")
     # {model._device.upper()}
 
     parser = Parser()
-    parser.read_files(args.functions_definition, args.input)
+    parser.read_files(args.input_functions, args.input_prompt)
 
     vocab_path = model.get_path_to_tokenizer_file()
     results = []
@@ -136,7 +134,7 @@ def main() -> None:
 
     for prompt_obj in parser.list_prompt:
         prompt_text = prompt_obj.prompt
-        print(f"\n--- Traitement du prompt : '{prompt_text}' ---")
+        prod_logger.info(f"Traitement du prompt : '{prompt_text}'")
 
         constrainer.reset()
         input_tensor = model.encode(
@@ -173,9 +171,9 @@ def main() -> None:
             # F. Informer la Machine à États du token choisi !
             constrainer.consume_token(next_token_id, token_str)
 
-            print(f"Token: {repr(token_str):8} | État FSM: "
-                  f"{constrainer.current_state.name} | "
-                  f"Buffer: {repr(constrainer.current_buffer)}")
+            prod_logger.token(f"Token: {repr(token_str):8} | État FSM: "
+                              f"{constrainer.current_state.name} | "
+                              f"Buffer: {repr(constrainer.current_buffer)}")
 
         # Construction de l'objet de sortie final pour ce prompt
         try:
@@ -191,8 +189,7 @@ def main() -> None:
             }
             results.append(ordered_json)
         except (json.JSONDecodeError, ValueError) as e:
-            logger.error(f"\033[1;31mErreur : JSON invalide ({e}):\n"
-                         f"{generated_json}\033[0m")
+            logger.error(f"Erreur : JSON invalide ({e}):\n{generated_json}")
             continue
 
     try:
@@ -204,8 +201,7 @@ def main() -> None:
         logger.info(f"{len(results)} résultats sauvegardés dans "
                     f"{args.output}")
     except IOError as e:
-        logger.error("\033[1;31mErreur d'écriture dans le fichier de sortie: "
-                     f"{e}\033[0m")
+        logger.error(f"Erreur d'écriture dans le fichier de sortie: {e}")
         sys.exit(1)
 
 

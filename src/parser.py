@@ -57,5 +57,5 @@ class Parser(BaseModel):
                     list[Prompt]).validate_python(data_prompt)
 
         except Exception as e:
-            logger.critical(f'\033[1;31mParsing Error: {e}\033[0m')
+            logger.critical(f'Parsing Error: {e}')
             sys.exit(1)

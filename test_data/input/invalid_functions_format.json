@@ -1,0 +1,30 @@
+[
+  {
+    "name": "fn_broken_missing_returns",
+    "description": "This function is missing the mandatory 'returns' field.",
+    "parameters": {
+      "a": {
+        "type": "number"
+      }
+    }
+  },
+  {
+    "description": "This function has no name.",
+    "parameters": {},
+    "returns": {
+      "type": "string"
+    }
+  },
+  {
+    "name": "fn_bad_parameter_type",
+    "description": "The parameter type is missing inside the object.",
+    "parameters": {
+      "bad_param": {
+        "wrong_key": "string"
+      }
+    },
+    "returns": {
+      "type": "string"
+    }
+  }
+]

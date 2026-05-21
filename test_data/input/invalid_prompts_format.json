@@ -1,0 +1,11 @@
+[
+  {
+    "prompt": "This is a valid prompt."
+  },
+  {
+    "wrong_key_instead_of_prompt": "This should crash the parser."
+  },
+  {
+    "prompt": {"text": "A prompt should be a string, not an object."}
+  }
+]

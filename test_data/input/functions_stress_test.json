@@ -1,0 +1,94 @@
+[
+  {
+    "name": "fn_ping_server",
+    "description": "Send a simple ping to the server. Takes absolutely no parameters.",
+    "parameters": {},
+    "returns": {
+      "type": "string"
+    }
+  },
+  {
+    "name": "fn_create_character",
+    "description": "Create an RPG character with multiple attributes.",
+    "parameters": {
+      "username": {
+        "type": "string"
+      },
+      "level": {
+        "type": "number"
+      },
+      "guild_name": {
+        "type": "string"
+      },
+      "gold_coins": {
+        "type": "number"
+      }
+    },
+    "returns": {
+      "type": "string"
+    }
+  },
+  {
+    "name": "fn_calculate_velocity",
+    "description": "Calculate velocity.",
+    "parameters": {
+      "distance": {
+        "type": "number"
+      },
+      "time": {
+        "type": "number"
+      }
+    },
+    "returns": {
+      "type": "number"
+    }
+  },
+  {
+    "name": "fn_calculate_volume",
+    "description": "Calculate volume.",
+    "parameters": {
+      "length": {
+        "type": "number"
+      },
+      "width": {
+        "type": "number"
+      },
+      "height": {
+        "type": "number"
+      }
+    },
+    "returns": {
+      "type": "number"
+    }
+  },
+  {
+    "name": "fn_toggle_light",
+    "description": "Turn a smart light on or off in a specific room.",
+    "parameters": {
+      "room": {
+        "type": "string"
+      },
+      "is_on": {
+        "type": "boolean"
+      }
+    },
+    "returns": {
+      "type": "boolean"
+    }
+  },
+  {
+    "name": "fn_create_user",
+    "description": "Create a new user profile with optional administrator rights.",
+    "parameters": {
+      "username": {
+        "type": "string"
+      },
+      "is_admin": {
+        "type": "boolean"
+      }
+    },
+    "returns": {
+      "type": "string"
+    }
+  }
+]

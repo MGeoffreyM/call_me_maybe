@@ -6,7 +6,7 @@
 #    By: geoffrey <geoffrey@student.42.fr>          +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2026/05/15 12:07:08 by gematura          #+#    #+#              #
-#    Updated: 2026/05/21 00:35:53 by geoffrey         ###   ########.fr        #
+#    Updated: 2026/05/21 17:41:46 by geoffrey         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -37,6 +37,15 @@ run-smollm2:
 	@printf '$(GREEN)Utilisation du modèle: HuggingFaceTB/SmolLM2-360M-Instruct$(RESET)\n'
 	uv run python -m src --model HuggingFaceTB/SmolLM2-360M-Instruct $(ARGS)
 
+test:
+	@printf '$(BLUE)Lancement de la suite de tests...$(RESET)\n'
+	uv run python -m src --input_functions test_data/input/functions_definition.json --input_prompt test_data/input/test_extrem_prompts.json --output test_data/output/test_extrem_results.json $(ARGS)
+	uv run python -m src --input_functions test_data/input/functions_stress_test.json --input_prompt test_data/input/prompts_stress_test.json --output test_data/output/test_stress_results.json $(ARGS)
+	uv run python -m src --input_functions test_data/input/test_complex_functions.json --input_prompt test_data/input/test_complex_prompts.json --output test_data/output/test_complex_results.json $(ARGS)
+	-uv run python -m src --input_functions test_data/input/functions_definition.json --input_prompt test_data/input/invalid_prompts_format.json $(ARGS)
+	-uv run python -m src --input_functions test_data/input/invalid_functions_format.json --input_prompt test_data/input/functions_calling_tests.json $(ARGS)
+	@printf '$(GREEN)Tests terminés. Résultats disponibles dans test_data/output/$(RESET)\n'
+
 debug:
 	@printf '$(BLUE)Lancement en mode debug...$(RESET)\n'
 	uv run python -m pdb -m src $(ARGS)
@@ -49,7 +58,7 @@ clean:
 
 fclean: clean
 	@printf "$(BLUE)Suppression de l'environnement virtuel...$(RESET)\n"
-	rm -rf .venv data/output call_me_maybe.log
+	rm -rf .venv data/output log/ test_data/output
 		
 lint:
 	@printf '$(BLUE)Lancement de flake8...$(RESET)\n'
@@ -65,7 +74,3 @@ lint-strict:
 	uv run mypy --strict .
 	@printf '$(GREEN)MYPY et Flake8 terminés en mode STRICT. Aucune erreur trouvée.$(RESET)\n'
 
-test:
-	@printf '$(BLUE)Lancement de la suite de tests unitaires avec pytest...$(RESET)\n'
-	uv run pytest tests/ -v
-	@printf '$(GREEN)Tests unitaires terminés. Aucune erreur trouvée.$(RESET)\n'

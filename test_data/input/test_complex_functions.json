@@ -1,0 +1,53 @@
+[
+  {
+    "name": "fn_add_numbers",
+    "description": "Add two numbers together.",
+    "parameters": {
+      "a": {
+        "type": "number"
+      },
+      "b": {
+        "type": "number"
+      }
+    },
+    "returns": {
+      "type": "number"
+    }
+  },
+  {
+    "name": "fn_manage_device",
+    "description": "Turn a smart device on or off and adjust its brightness.",
+    "parameters": {
+      "device_name": {
+        "type": "string"
+      },
+      "turn_on": {
+        "type": "boolean"
+      },
+      "brightness": {
+        "type": "number"
+      }
+    },
+    "returns": {
+      "type": "boolean"
+    }
+  },
+  {
+    "name": "fn_execute_workflow",
+    "description": "Execute a workflow with a specific nested action.",
+    "parameters": {
+      "workflow_name": {
+        "type": "string"
+      },
+      "is_active": {
+        "type": "boolean"
+      },
+      "primary_action": {
+        "type": "object"
+      }
+    },
+    "returns": {
+      "type": "string"
+    }
+  }
+]

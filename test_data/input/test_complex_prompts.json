@@ -1,0 +1,14 @@
+[
+  {
+    "prompt": "Set the 'Living Room Lamp' to 75.5 brightness and make sure to turn it on."
+  },
+  {
+    "prompt": "I need you to turn off the 'Night Light' and set its brightness to exactly 0."
+  },
+  {
+    "prompt": "Create an active workflow named 'Math Pipeline'. For its primary action, I want you to add the numbers 42 and 84 together."
+  },
+  {
+    "prompt": "Run a workflow called 'Test Sequence' that is currently NOT active. Its primary action should be adding 9999999999 and -0.5."
+  }
+]
