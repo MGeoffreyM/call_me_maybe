@@ -97,9 +97,9 @@ def main() -> None:
 
     cli_parser = argparse.ArgumentParser(
         description='Call Me Maybe - Function Calling LLM')
-    cli_parser.add_argument('--input_functions', type=str,
+    cli_parser.add_argument('--functions_definition', type=str,
                             default='data/input/functions_definition.json')
-    cli_parser.add_argument('--input_prompt', type=str,
+    cli_parser.add_argument('--input', type=str,
                             default='data/input/function_calling_tests.json')
     cli_parser.add_argument(
         '--output', type=str,
@@ -119,10 +119,9 @@ def main() -> None:
 
     logger.info(f"Modèle chargé : {args.model}")
     logger.info(f"Matériel utilisé pour l'IA : {mode_calcul}")
-    # {model._device.upper()}
 
     parser = Parser()
-    parser.read_files(args.input_functions, args.input_prompt)
+    parser.read_files(args.functions_definition, args.input)
 
     vocab_path = model.get_path_to_tokenizer_file()
     results = []

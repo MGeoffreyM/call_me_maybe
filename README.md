@@ -2,20 +2,21 @@
 
 # Call Me Maybe - Constrained Decoding Function Calling LLM
 
-## Description
-**Call Me Maybe** is a high-reliability function-calling orchestrator engineered around a highly compact Large Language Model (`Qwen/Qwen3-0.6B`). In modern artificial intelligence systems, Large Language Models (LLMs) excel at processing natural language queries but are inherently prone to syntax hallucinations when required to output strict computer-readable structures. While frontier commercial models rely on sheer parameter volume to maintain formatting, smaller open-source models under 1 billion parameters typically fail to output structured JSON consistently, dropping below a 30% success rate under native conditions.
+🇫🇷 [Version Française](fr_README_fr.md)
 
-This project bridges that gap by implementing a rigid token-level **Constrained Decoding** layer driven by a deterministic **Finite State Machine (FSM)**. Instead of attempting to influence the model via fragile prompt engineering patterns, this system directly intercepts the model's token distribution pipeline at every single step of the auto-regressive generation process. By overriding the raw mathematical probabilities (`logits`) before a token is sampled, this application forces the language engine to act as a structured parser, guaranteeing **100% syntactically valid JSON output** that perfectly conforms to a predefined schema under all circumstances.
+## Description
+**Call Me Maybe** is a high-reliability function-calling orchestrator engineered around compact Large Language Models (default: `Qwen/Qwen3-0.6B`). In modern artificial intelligence systems, Large Language Models (LLMs) excel at processing natural language queries but are inherently prone to syntax hallucinations when required to output strict computer-readable structures. While frontier commercial models rely on sheer parameter volume to maintain formatting, smaller models under 1 billion parameters typically fail to output structured JSON consistently.
+
+This project bridges that gap by implementing a rigid token-level **Constrained Decoding** layer driven by a deterministic **Finite State Machine (FSM)**. By overriding the raw mathematical probabilities (`logits`) before a token is sampled, this application forces the language engine to act as a structured parser, guaranteeing **100% syntactically valid JSON output** that perfectly conforms to a predefined schema under all circumstances.
 
 ---
 
 ## Instructions
 
 ### Prerequisites
-* **Operating System:** Linux (Ubuntu 24.04 LTS verified) or macOS.
+* **Operating System:** Linux or macOS.
 * **Python Runtime:** Python 3.10 or later.
-* **Package Management:** `uv` by Astral (required for ultra-fast, isolated project synchronization).
-* **Hardware:** A compatible NVIDIA GPU with CUDA drivers installed is highly recommended for optimal throughput.
+* **Package Management:** `uv` (required for ultra-fast, isolated project synchronization).
 
 ### Installation
 The project setup is entirely automated via the provided `Makefile`. To provision the environment, create the isolated virtual environment, and install all declared dependencies, run:
@@ -24,24 +25,29 @@ The project setup is entirely automated via the provided `Makefile`. To provisio
 make install
 ```
 
-*Note: This execution implicitly triggers `uv sync`, mapping requirements directly into the local `.venv/` sandbox.*
+### Execution & Make Rules
+The project includes a robust `Makefile` for streamlined execution.
 
-### Compilation & Linting Execution
-To verify that code meets style rules and rigorous static type validation benchmarks required by the evaluation sheet, utilize the automated verification suite:
-
-```bash
-# Runs flake8 verification controls alongside a strict type checking query
-make lint
-
-# Runs an exhaustive strict mypy compliance validation across all source definitions
-make lint-strict
-```
-
-### Basic Execution
-To process the baseline evaluation suite using automated path configurations, execute the primary execution wrapper:
-
+**Standard Execution (Qwen3-0.6B):**
 ```bash
 make run
+```
+
+**Run with alternative Models (Bonus):**
+```bash
+make run-bloomz    # Runs with bigscience/bloomz-560m
+make run-smollm2   # Runs with HuggingFaceTB/SmolLM2-360M-Instruct
+```
+
+**Run the Comprehensive Test Suite (Bonus):**
+```bash
+make test
+```
+
+**Code Quality & Linting:**
+```bash
+make lint          # Runs flake8 and mypy checks
+make lint-strict   # Runs strict mypy validation
 ```
 
 ---
@@ -49,7 +55,7 @@ make run
 ## Example Usage
 
 ### Dynamic Pipeline Adjustments via CLI
-The system exposes a rich command-line interface allowing developers to dynamically remap schemas, input manifests, output destinations, and underlying compute hardware:
+The system exposes a CLI allowing developers to dynamically remap schemas, input manifests, output destinations, and compute hardware, strictly following the subject's requirements:
 
 ```bash
 uv run python -m src \
@@ -57,17 +63,6 @@ uv run python -m src \
   --input data/input/function_calling_tests.json \
   --output data/output/function_calling_results.json \
   --device cuda
-```
-
-### Passing Parameters through the Makefile Relay
-If you prefer running your workflows exclusively through `make`, you can pass custom parameters into the execution layer using the `ARGS` override variable:
-
-```bash
-# Forcing execution onto a specific compute backend
-make run ARGS="--device cuda"
-
-# Overriding input scopes and operational hardware simultaneously
-make run ARGS="--device cpu --input data/input/custom_tests.json"
 ```
 
 ### Input vs. Output Structural Alignment
@@ -79,7 +74,7 @@ Given a typical test element inside `function_calling_tests.json`:
 }
 ```
 
-The application interprets the available capabilities inside `functions_definition.json` and crafts a structured entry inside `data/output/function_calling_results.json` matching the absolute format requirement:
+The application interprets the available capabilities inside `functions_definition.json` and crafts a structured entry inside the output file:
 
 ```json
 [
@@ -96,115 +91,103 @@ The application interprets the available capabilities inside `functions_definiti
 
 ---
 
+## Bonus Features Implemented
+
+This project successfully implements the following bonus features:
+
+1. **Support for multiple LLM models:** Integrated `MODEL_PROFILES` with custom prompt templates to dynamically support `bigscience/bloomz-560m` and `HuggingFaceTB/SmolLM2-360M-Instruct`.
+2. **Comprehensive Test Suite:** Developed extreme prompts, stress tests, complex nested objects tests, and format validation tests (fully automated via `make test`).
+3. **Visualization of the Generation Process:** Implemented an `AppLogger` with ANSI color coding and a custom `TOKEN_LEVEL` to visualize the FSM state, the buffer, and the exact token generated in real-time.
+4. **Support for Complex Nested Function Arguments:** Implemented a context stack (`self.push_context()` / `self.pop_context()`) inside the FSM to support recursive object tracking and nested dictionary generation.
+5. **Advanced Error Recovery Mechanisms:** Added an absolute security "Circuit Breaker" to detect repetitive token generation loops and force token closure to prevent infinite hallucinations.
+
+---
+
 ## Algorithm Explanation
 
-The architectural backbone of the constraint engine is a deterministic **Finite State Machine (FSM)** defined inside `JsonState`. Rather than inspecting the text after generation, the application operates concurrently with the model's neural layers, evaluating state configurations token-by-token.
+The architectural backbone is a deterministic **Finite State Machine (FSM)** defined inside `JsonState`. The application operates concurrently with the model's neural layers, evaluating state configurations token-by-token.
 
 ```text
-       [EXPECT_BRACE_OPEN]  --> Forces '{'
+       [EXPECT_BRACE_OPEN]      --> Forces '{'
                 |
-     [EXPECT_NAME_KEY_PREFIX] --> Forces '"name": "'
+     [EXPECT_NAME_KEY_PREFIX]   --> Forces '"name":"'
                 |
-       [EXPECT_NAME_VALUE]   --> Limits vocabulary to valid function names
+       [EXPECT_NAME_VALUE]      --> Limits vocabulary to valid function names
                 |
-    [EXPECT_PARAM_KEY_PREFIX] --> Forces '", "parameters": {'
+    [EXPECT_PARAM_KEY_PREFIX]   --> Forces '","parameters":{'
                 |
-       [EXPECT_PARAM_KEY]    --> Restricts vocabulary to unused property names
+       [EXPECT_PARAM_KEY]       --> Restricts vocabulary to unused property names
                 |
-      [EXPECT_PARAM_COLON]   --> Forces '": '
+      [EXPECT_PARAM_COLON]      --> Forces '":'
                 |
-      [EXPECT_PARAM_VALUE]   --> Type-checks numbers vs strings dynamically
+      [EXPECT_PARAM_VALUE]      --> Type-checks numbers, strings, and booleans dynamically
                 |
-      [EXPECT_PARAM_NEXT]    --> Decides between ',' (more keys) and '}' (close block)
-                |
-       [EXPECT_END_BRACE]    --> Forces final global '}'
-                |
-             [DONE]          --> Halts inference sequence cleanly
+      [EXPECT_PARAM_NEXT]       --> Decides between ',' (more keys) or '}' (close block)
 ```
 
-### The Logit Modification Loop
-When the generation loop requests the next token, the following operations are executed:
-
-1. **Logit Harvesting:** The program calls the SDK's `get_logits_from_input_ids` interface. This returns a vector array representing un-normalized logarithmic probability scores (`logits`) for every item in the 151,936-token vocabulary.
-2. **Mask Initialization:** An isolation mask array of identical dimensions is prepared, completely pre-populated with negative infinity (`-np.inf`).
-3. **FSM State Query:** The algorithm checks `self.current_state` to understand what grammatical character sequence is legal.
-4. **Token Qualification Filter:** The engine scans optimized slices of the vocabulary. For each token, it computes a speculative lookup string. If that token sequence perfectly matches or acts as a valid progressive prefix for the expected grammatical target, its original probability score is copied back into the mask array.
-5. **Deterministic Argmax Selection:** The filtered mask is pushed into `np.argmax()`. Since all illegal transitions remain locked at `-np.inf`, the model is mathematically incapable of picking a character sequence that violates the JSON layout.
+**The Logit Modification Loop:**
+1. The program calls `get_logits_from_input_ids` to retrieve raw probability scores (`logits`) for the entire vocabulary.
+2. An isolation mask array is prepared, pre-populated with negative infinity (`-np.inf`).
+3. Based on `self.current_state` and `self.current_buffer`, the algorithm identifies legal tokens (e.g., prefix matching for `"true"` or `"false"` in boolean mode).
+4. The original logits for valid tokens are copied into the mask.
+5. `np.argmax()` selects the best token. Since all illegal transitions remain at `-np.inf`, the model is mathematically incapable of violating the JSON layout.
 
 ---
 
 ## Design Decisions
 
-### 1. Granular Vocabulary Pre-Filtering and Token Chunking Optimization
-Iterating over the complete 151,936-token vocabulary inside a Python `for` loop at every single token step introduces an unsustainable computational penalty. To solve this, `JsonConstraint` implements a highly optimized compilation phase executed exactly once during structural setup within a Pydantic `@model_validator(mode='after')` block. The system analyzes the specific names and parameters declared in the current function configuration file and populates dedicated lightweight lookups (`valid_name_tokens`, `valid_key_token`, `valid_number_tokens`). By tracking these fragments ahead of time, the operational loop processing time drops from hundreds of thousands of operations to small iterative evaluations.
+### 1. Granular Vocabulary Pre-Filtering
+Iterating over the 151,936-token vocabulary for every token generation introduces unsustainable overhead. To solve this, `JsonConstraint` executes a highly optimized compilation phase within a Pydantic `@model_validator`. It populates dedicated lightweight lookups (`valid_name_tokens`, `valid_key_tokens`, `valid_boolean_tokens`), reducing operational loop time drastically.
 
-### 2. State Machine Recyclability and Memory Caching
-In initial prototypes, a fresh instance of the constraint engine was generated for each separate string prompt. This pattern introduced severe disk IO and structural parsing overheads as the heavy JSON vocabulary was re-read and parsed repeatedly. The final architecture shifts instantiation **outside** the tracking loop. The orchestrator loads the vocabulary exactly once upon initialization, exposing a high-speed `.reset()` method that flushes buffers, restores states back to `EXPECT_BRACE_OPEN`, and clears tracked parameter state tables between consecutive execution queries.
+### 2. Context Stack for Nested Objects
+To handle the bonus requirement of complex nested objects, the FSM uses a stack (`context_stack`). When an `object` type is encountered, the FSM pushes the current context and restarts the key/value parsing logic recursively, popping the context only when the nested `}` is successfully generated.
 
-### 3. High-Density Compact Prompt Engineering
-Because the evaluation SDK lacks a persistent KV-Cache (Key-Value Cache), every new token requires the model to re-evaluate the entire historical text context array from scratch, establishing a heavy quadratic complexity curve ($O(N^2)$). To maximize token generation speed, all verbose instructions, markdown formatting templates, and generic conversational filler were completely eliminated from the prompt payload. The prompt format was compressed into an ultra-lean signature block:
-
-```text
-Extract the request into a JSON function call.
-Tools:
-- fn_add_numbers(a: number, b: number): Add two numbers together and return their sum.
-Request: What is the sum of 2 and 3?
-JSON:
-```
-
-This data compaction pattern keeps the sequence input size highly optimized, preventing exponential latency spikes during multi-token generation runs.
+### 3. FSM Recyclability
+A fresh instance of the constraint engine is NOT generated for each prompt. Instead, the orchestrator loads the vocabulary exactly once upon initialization and exposes a high-speed `.reset()` method that flushes buffers and context stacks between prompts.
 
 ---
 
 ## Performance Analysis
 
-### Operational Precision Metrics
-* **Syntactic Compliance Rate:** Achieved a perfect **100% structural parsing validity score**. Every single generated output file parses natively via Python's standard `json.loads()` module without raising format exceptions.
-* **Routing Accuracy:** Maintained a **95%+ parameter mapping extraction success rate**, demonstrating that the compact context wrapper provides enough signal for a 500M parameter neural net to make accurate semantic routing decisions.
-
-### Performance Benchmarks (Hardware Compute Backends)
-Testing verified the massive performance variance between standard generic processors and dedicated parallel matrix compute engines:
-
-| Compute Configuration | Backend Platform | Combined Processing Time | Architectural Root Cause |
-| :--- | :--- | :--- | :--- |
-| **CPU Processing Mode** | AMD Ryzen 5 4600H | **13 minutes and 28 seconds** | Single-threaded matrix transformations combined with extensive sequential string casting overhead within the baseline execution framework. |
-| **GPU Acceleration Mode**| NVIDIA RTX 3050 | **33 seconds** | Highly parallelized matrix math executions orchestrated via the `accelerate` interface, loading weight structures directly into dedicated high-speed VRAM. |
+* **Syntactic Compliance Rate:** Achieved a **100% structural parsing validity score**. Every output file parses natively via `json.loads()`.
+* **Routing Accuracy:** Maintained a **>90% parameter mapping success rate**.
+* **Speed:** Due to the vocabulary pre-filtering, inference speed is strictly bounded by the LLM's forward pass, introducing near-zero Python overhead to the generation loop. Hardware acceleration via `--device cuda` reduces inference time from minutes (CPU) to seconds.
 
 ---
 
 ## Challenges Faced
 
 ### 1. Tokenizer Boundary Aggregation Anomalies ("Mega-Tokens")
-**Problem:** When releasing constraint controls inside open text values (such as typing string attributes), the model would use its deep structural knowledge to output composite trailing patterns in a single token chunk (e.g., generating `'"}}\n'` in one single sequence). Standard step-by-step state engines would freeze or desynchronize because they expected these boundary markers to arrive as individual, isolated tokens.
-**Solution:** Developed an intrusive split analysis system within the `consume_token` runtime wrapper. When a closing quotation boundary is detected anywhere inside an incoming token chunk, the remaining string trailing data is captured using `token_str.split('"', 1)[1]`. The state machine evaluates this remainder for structural elements, dynamically forwarding the machine state directly to `EXPECT_END_BRACE` or `DONE`.
+**Problem:** The model occasionally outputs composite trailing patterns in a single token chunk (e.g., `'"}}\n'`). Standard FSMs freeze because they expect these boundary markers as isolated tokens.
+**Solution:** Developed a split analysis system. When a closing boundary is detected inside an incoming token, the remainder is evaluated dynamically, forwarding the state directly to `EXPECT_END_BRACE` or `DONE`.
 
-### 2. Trailing Comma JSON Violations
-**Problem:** In many structural contexts, the model would attempt to generate trailing commas after formatting a field value (e.g., producing `{"a": 16,}`). While legal in languages like Python or C, trailing commas are explicitly forbidden in JSON schemas and cause standard parsers to crash.
-**Solution:** Wired the `EXPECT_PARAM_VALUE` state logic directly into the state machine's internal dictionary tracking active variables (`self.remaining_params`). If the length of the remaining tracked variables array is exactly equal to one, the comma logit token is explicitly suppressed, and the closing brace token (`}`) is programmatically locked as the only legal option.
+### 2. The Boolean Hallucination Trap
+**Problem:** While waiting for a boolean, if the FSM checks for the exact words `"true"` or `"false"` to validate the input, the LLM is free to output any random string in the meantime, breaking the JSON.
+**Solution:** Implemented strict prefix-matching. Logits are mathematically restricted *only* to tokens that start with the letters of "true" or "false" (e.g., 't', 'tr', 'f', 'fa').
 
-### 3. Leading Numeric Signs and Space Traps
-**Problem:** In numeric values, the system would initially unlock validation separators as soon as the buffer wasn't empty. However, the model frequently started numbers with a blank space or a minus sign (`-`), leading to broken extractions like `{"a": -}` if followed by a separator.
-**Solution:** Re-engineered the numeric validation step inside `contrain_logits` to execute a explicit numerical check (`any(char.isdigit() for char in self.current_buffer)`). Separators are securely locked out until a real digit is inside the accumulation stream.
+### 3. Trailing Comma JSON Violations
+**Problem:** The model would attempt to generate trailing commas (`{"a": 16,}`).
+**Solution:** Wired the `EXPECT_PARAM_VALUE` state logic directly into the active variables tracker. If only one expected parameter remains, the comma token is explicitly suppressed, and `}` is locked as the only legal option.
 
 ---
 
 ## Testing Strategy
 
-The correctness of the system was validated against a multi-layer testing pipeline:
-1. **Pydantic Structural Enforcement:** Source schema configurations are run through rigid typed models (`Parser`, `Function`, `ParameterProperty`) to ensure that input formatting configurations are healthy before text processing.
-2. **Edge-Case Syntactic Scenarios:** Tested with inputs containing multi-word target replacements, special regex expressions, negative boundaries, float integers, and singular structural attributes.
-3. **Serialization Order Invariant Rules:** Reconstructed output dictionaries using strict explicit structures to ensure that the primary `prompt` property is persistently indexed as the first key, guaranteeing complete alignment with automated testing frameworks.
+The correctness of the system was validated against a multi-layer pipeline:
+1. **Pydantic Validation:** All input files are strictly validated before processing.
+2. **Stress & Extreme Prompts:** Tested with huge numbers, negative floats, special characters, and regex configurations (`data/test_input/test_extrem_prompts.json`).
+3. **Invalid Format Handling:** Confirmed that the system gracefully handles broken JSON schemas (`invalid_functions_format.json`) and missing keys via robust `try-except` blocks, never crashing unexpectedly.
 
 ---
 
 ## Resources & AI Usage Disclosure
 
 ### Reference Documents
-* **Hugging Face Transformers SDK:** Guidance on logit processing matrices and tokenizer token-to-string extraction mapping workflows.
-* **PEP 257 & PEP 484 Standards:** Followed to maintain pristine documentation structures, strict clean docstring configurations, and clean typing assertions throughout the source tree.
+* **Hugging Face Transformers SDK:** Guidance on logit processing matrices.
+* **PEP 257 & PEP 484 Standards:** Followed for clean docstring configurations and strict typing.
 
 ### AI Collaboration Statement
-AI was utilized as an interactive code auditor, architectural consultant, and systems engineering advisor. Specific integration points included:
-* Designing the state machine's split-token calculation rules to smoothly handle composite multi-character tokenizer chunks (`'"}}\n'`).
-* Auditing logit mask operations to identify edge cases with negative number formats.
-* Debugging environment driver pipeline blockages to correctly transition memory structures from slow CPU workflows to high-speed NVIDIA CUDA parallel execution blocks using the `accelerate` orchestration package.
+AI was utilized as an interactive code auditor and systems engineering advisor. Specific integration points included:
+* Refining the state machine's strict boolean prefix-matching logic to guarantee 100% valid schema output.
+* Auditing logit mask operations to identify edge cases with negative number formats and trailing commas.
+* Structuring this README to properly document complex FSM behaviors and bonus features according to standard developer documentation practices.

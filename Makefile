@@ -6,7 +6,7 @@
 #    By: geoffrey <geoffrey@student.42.fr>          +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2026/05/15 12:07:08 by gematura          #+#    #+#              #
-#    Updated: 2026/05/21 17:41:46 by geoffrey         ###   ########.fr        #
+#    Updated: 2026/05/23 15:15:23 by geoffrey         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -39,12 +39,12 @@ run-smollm2:
 
 test:
 	@printf '$(BLUE)Lancement de la suite de tests...$(RESET)\n'
-	uv run python -m src --input_functions test_data/input/functions_definition.json --input_prompt test_data/input/test_extrem_prompts.json --output test_data/output/test_extrem_results.json $(ARGS)
-	uv run python -m src --input_functions test_data/input/functions_stress_test.json --input_prompt test_data/input/prompts_stress_test.json --output test_data/output/test_stress_results.json $(ARGS)
-	uv run python -m src --input_functions test_data/input/test_complex_functions.json --input_prompt test_data/input/test_complex_prompts.json --output test_data/output/test_complex_results.json $(ARGS)
-	-uv run python -m src --input_functions test_data/input/functions_definition.json --input_prompt test_data/input/invalid_prompts_format.json $(ARGS)
-	-uv run python -m src --input_functions test_data/input/invalid_functions_format.json --input_prompt test_data/input/functions_calling_tests.json $(ARGS)
-	@printf '$(GREEN)Tests terminés. Résultats disponibles dans test_data/output/$(RESET)\n'
+	uv run python -m src --functions_definition data/test_input/functions_definition.json --input data/test_input/test_extrem_prompts.json --output data/output/test_extrem_results.json $(ARGS)
+	uv run python -m src --functions_definition data/test_input/functions_stress_test.json --input data/test_input/prompts_stress_test.json --output data/output/test_stress_results.json $(ARGS)
+	uv run python -m src --functions_definition data/test_input/test_complex_functions.json --input data/test_input/test_complex_prompts.json --output data/output/test_complex_results.json $(ARGS)
+	-uv run python -m src --functions_definition data/test_input/functions_definition.json --input data/test_input/invalid_prompts_format.json $(ARGS)
+	-uv run python -m src --functions_definition data/test_input/invalid_functions_format.json --input data/test_input/functions_calling_tests.json $(ARGS)
+	@printf '$(GREEN)Tests terminés. Résultats disponibles dans data/output/$(RESET)\n'
 
 debug:
 	@printf '$(BLUE)Lancement en mode debug...$(RESET)\n'
@@ -56,9 +56,14 @@ clean:
 	find . -type d -name '__pycache__' -exec rm -rf {} +
 	uv clean --force
 
+clean-test:
+	@printf '$(BLUE)Nettoyage des fichiers tests$(RESET)\n'
+	rm -rf data/output data/log
+	
+
 fclean: clean
 	@printf "$(BLUE)Suppression de l'environnement virtuel...$(RESET)\n"
-	rm -rf .venv data/output log/ test_data/output
+	rm -rf .venv data/output data/log
 		
 lint:
 	@printf '$(BLUE)Lancement de flake8...$(RESET)\n'

@@ -39,10 +39,12 @@ class JsonConstraint(BaseModel):
 
     valid_name_tokens: dict[str, int] = Field(default_factory=dict)
     json_symbols: dict[str, int] = Field(default_factory=dict)
-    valid_key_token: dict[str, int] = Field(default_factory=dict)
+    valid_key_tokens: dict[str, int] = Field(default_factory=dict)
     valid_number_tokens: dict[str, int] = Field(default_factory=dict)
+    valid_boolean_tokens: dict[str, int] = Field(default_factory=dict)
     quote_comma_tokens: list[int] = Field(default_factory=list)
     quote_brace_tokens: list[int] = Field(default_factory=list)
+    whitespace_tokens: list[int] = Field(default_factory=list)
 
     current_state: JsonState = Field(default=JsonState.EXPECT_BRACE_OPEN)
     current_buffer: str = Field(default='')
@@ -66,7 +68,8 @@ class JsonConstraint(BaseModel):
 
     def pop_context(self) -> None:
         """Termine la fonction actuelle et revient à la parente."""
-        self.context_stack.pop()
+        if self.context_stack:
+            self.context_stack.pop()
 
     @property
     def current_context(self) -> dict[str, Any] | None:
@@ -105,6 +108,11 @@ class JsonConstraint(BaseModel):
 
         for token_str, token_id in vocab.items():
             real_str = self._real_str(token_str)
+
+            if real_str == "" or real_str.isspace() or token_str in [
+                    "<|endoftext|>", "<|im_end|>", "</s>", "<eos>"]:
+                self.whitespace_tokens.append(token_id)
+
             if real_str == "":
                 continue
 
@@ -112,15 +120,22 @@ class JsonConstraint(BaseModel):
                 self.valid_name_tokens[token_str] = token_id
 
             if any(real_str in key for key in all_key):
-                self.valid_key_token[token_str] = token_id
+                self.valid_key_tokens[token_str] = token_id
 
-            if all(char in "0123456789.-" for char in real_str):
-                self.valid_number_tokens[token_str] = token_id
+            real_stripped = real_str.strip()
+            if real_stripped != "":
+                if all(char in "-0123456789." for char in real_stripped):
+                    self.valid_number_tokens[token_str] = token_id
 
-            real_no_space = real_str.replace(' ', '')
-            if '",' in real_no_space:
+            if any(target.startswith(real_stripped.lower()) for target
+                    in ['true', 'false']):
+                self.valid_boolean_tokens[token_str] = token_id
+
+            real_no_space = real_str.replace(' ', '').replace(
+                '\n', '').replace('\r', '')
+            if real_no_space in ['",', '","']:
                 self.quote_comma_tokens.append(token_id)
-            if '"}' in real_no_space:
+            if real_no_space in ['"}', '\\"}']:
                 self.quote_brace_tokens.append(token_id)
 
         return self
@@ -141,7 +156,7 @@ class JsonConstraint(BaseModel):
                 if self.current_buffer == target_string:
                     return logits_contraints
 
-                for token_str, token_id in self.valid_key_token.items():
+                for token_str, token_id in self.valid_key_tokens.items():
                     real_token = self._real_str(token_str)
                     potential_buffer = self.current_buffer + real_token
                     if target_string.startswith(potential_buffer):
@@ -169,7 +184,7 @@ class JsonConstraint(BaseModel):
                 if self.current_buffer == target_string:
                     return logits_contraints
 
-                for token_str, token_id in self.valid_key_token.items():
+                for token_str, token_id in self.valid_key_tokens.items():
                     real_token = self._real_str(token_str)
                     potential_buffer = self.current_buffer + real_token
                     if target_string.startswith(potential_buffer):
@@ -187,7 +202,7 @@ class JsonConstraint(BaseModel):
 
                 valid_targets = [f'"{k}"' for k in ctx["remaining"].keys()]
 
-                for token_str, token_id in self.valid_key_token.items():
+                for token_str, token_id in self.valid_key_tokens.items():
                     real_token = self._real_str(token_str)
                     potential_buffer = self.current_buffer + real_token
                     if any(target.startswith(potential_buffer) for target
@@ -200,7 +215,7 @@ class JsonConstraint(BaseModel):
                 if self.current_buffer == target_string:
                     return logits_contraints
 
-                for token_str, token_id in self.valid_key_token.items():
+                for token_str, token_id in self.valid_key_tokens.items():
                     real_token = self._real_str(token_str)
                     potential_buffer = self.current_buffer + real_token
                     if target_string.startswith(potential_buffer):
@@ -219,17 +234,23 @@ class JsonConstraint(BaseModel):
                     if id_brace is not None:
                         logits_contraints[id_brace] = logits[id_brace]
 
-                elif param_type == 'number':
-                    if len(self.current_buffer) < 40:
+                elif param_type in ['number', 'integer', 'float']:
+                    if len(self.current_buffer.strip()) < 40:
                         for token_str, token_id in \
                                 self.valid_number_tokens.items():
                             real_token = self._real_str(token_str)
+
+                            if ' ' in real_token and len(
+                                    self.current_buffer.strip()) > 0:
+                                continue
+                            if '-' in real_token and len(
+                                    self.current_buffer.strip()) > 0:
+                                continue
+
                             if '.' in self.current_buffer and '.' \
                                     in real_token:
                                 continue
-                            if '-' in real_token and len(
-                                    self.current_buffer) > 0:
-                                continue
+
                             logits_contraints[token_id] = logits[token_id]
 
                     has_digit = any(char.isdigit() for char
@@ -250,12 +271,41 @@ class JsonConstraint(BaseModel):
                         if id_quote is not None:
                             logits_contraints[id_quote] = logits[id_quote]
                     else:
+                        # Circuit Breaker de sécurité absolue
+                        is_looping = False
+                        if len(self.current_buffer) > 10:
+                            for length in range(2, 10):
+                                pattern = self.current_buffer[-length:]
+                                if self.current_buffer.count(pattern) >= 4:
+                                    is_looping = True
+                                    break
+                        if is_looping:
+                            logits_contraints = np.full(logits.shape, -np.inf)
+                            id_quote = self.json_symbols.get('"')
+                            if id_quote is not None:
+                                logits_contraints[id_quote] = logits[id_quote]
+                            return logits_contraints
+
                         logits_contraints = np.copy(logits)
 
-                        for t_id in self.quote_brace_tokens:
-                            logits_contraints[t_id] = -np.inf
-                        for t_id in self.quote_comma_tokens:
-                            logits_contraints[t_id] = -np.inf
+                        id_quote = self.json_symbols.get('"')
+                        if id_quote is not None:
+                            max_blocked_logit = -np.inf
+
+                            blocked_lists = (
+                                self.quote_comma_tokens
+                                + self.quote_brace_tokens
+                            )
+
+                            for t_id in blocked_lists:
+                                if logits[t_id] > max_blocked_logit:
+                                    max_blocked_logit = logits[t_id]
+
+                            if max_blocked_logit > logits_contraints[id_quote]:
+                                logits_contraints[id_quote] = max_blocked_logit
+
+                            for t_id in blocked_lists:
+                                logits_contraints[t_id] = -np.inf
 
                 elif param_type == 'boolean':
                     buffer_lower = self.current_buffer.lower().strip()
@@ -269,7 +319,13 @@ class JsonConstraint(BaseModel):
                                 is not None:
                             logits_contraints[id_brace] = logits[id_brace]
                     else:
-                        logits_contraints = np.copy(logits)
+                        for token_str, token_id in \
+                                self.valid_boolean_tokens.items():
+                            real_token = self._real_str(token_str).lower()
+                            potential_buffer = buffer_lower + real_token
+                            if 'true'.startswith(potential_buffer) \
+                                    or 'false'.startswith(potential_buffer):
+                                logits_contraints[token_id] = logits[token_id]
                 else:
                     logits_contraints = np.copy(logits)
 
@@ -295,7 +351,10 @@ class JsonConstraint(BaseModel):
                 return logits_contraints
 
             case JsonState.DONE:
-                pass
+                logits_contraints = np.full(logits.shape, -np.inf)
+                for t_id in self.whitespace_tokens:
+                    logits_contraints[t_id] = logits[t_id]
+                return logits_contraints
 
         return logits
 
@@ -317,7 +376,6 @@ class JsonConstraint(BaseModel):
                     self.current_state = JsonState.EXPECT_PARAM_KEY_PREFIX
                     for func in self.allowed_functions:
                         if func.name == self.current_buffer:
-                            # CRÉATION DU NOUVEAU CONTEXTE DANS LA PILE
                             self.push_context(func.name, func.parameters)
                             break
                     self.current_buffer = ''
@@ -336,6 +394,8 @@ class JsonConstraint(BaseModel):
                     return
                 if len(ctx["remaining"]) == 0 and '}' in token_str:
                     self.current_state = JsonState.EXPECT_END_BRACE
+                    if token_str.count('}') >= 2:
+                        self.current_state = JsonState.DONE
                     self.current_buffer = ""
                 else:
                     self.current_buffer += token_str
@@ -360,7 +420,6 @@ class JsonConstraint(BaseModel):
 
                 param_type = ctx["current_type"]
 
-                # 1. OBJET
                 if param_type == 'object':
                     if '{' in token_str:
                         self.current_state = JsonState.EXPECT_NAME_KEY_PREFIX
@@ -369,8 +428,14 @@ class JsonConstraint(BaseModel):
                 elif param_type == 'string':
                     self.current_buffer += token_str
                     buffer_content = self.current_buffer[1:]
-                    is_closed = buffer_content.endswith(
-                        '"') and not buffer_content.endswith('\\"')
+
+                    backslash_count = 0
+                    i = len(buffer_content) - 2
+                    while i >= 0 and buffer_content[i] == '\\':
+                        backslash_count += 1
+                        i -= 1
+                    is_escaped = (backslash_count % 2 == 1)
+                    is_closed = buffer_content.endswith('"') and not is_escaped
 
                     clean_token = token_str.replace(' ', '').replace(
                         '\n', '').replace('\r', '')
@@ -381,20 +446,23 @@ class JsonConstraint(BaseModel):
                         if ctx["current_key"] in ctx["remaining"]:
                             del ctx["remaining"][ctx["current_key"]]
 
-                        if clean_token.endswith('","'):
-                            self.current_state = JsonState.EXPECT_PARAM_KEY
-                            self.current_buffer = '"'
-                        elif clean_token.endswith('",'):
-                            self.current_state = JsonState.EXPECT_PARAM_KEY
-                            self.current_buffer = ""
-                        elif clean_token.endswith('"}'):
+                        after_quote = clean_token.rsplit('"', 1)[-1]
+
+                        if '}' in after_quote:
                             self.current_state = JsonState.EXPECT_END_BRACE
+                            if after_quote.count('}') >= 2:
+                                self.current_state = JsonState.DONE
                             self.current_buffer = ""
+                        elif ',' in after_quote:
+                            self.current_state = JsonState.EXPECT_PARAM_KEY
+                            self.current_buffer = ""
+                            if after_quote.endswith(',"'):
+                                self.current_buffer = '"'
                         else:
                             self.current_state = JsonState.EXPECT_PARAM_NEXT
                             self.current_buffer = ""
 
-                elif param_type in ['number', 'boolean']:
+                elif param_type in ['number', 'integer', 'float', 'boolean']:
                     self.current_buffer += token_str
                     clean_token = token_str.replace(' ', '').replace(
                         '\n', '').replace('\r', '')
@@ -403,20 +471,18 @@ class JsonConstraint(BaseModel):
                         if ctx["current_key"] in ctx["remaining"]:
                             del ctx["remaining"][ctx["current_key"]]
 
-                        if clean_token.endswith(',"'):
-                            self.current_state = JsonState.EXPECT_PARAM_KEY
-                            self.current_buffer = '"'
-                        elif clean_token.endswith(','):
-                            self.current_state = JsonState.EXPECT_PARAM_KEY
-                            self.current_buffer = ""
-                        elif clean_token.endswith('}'):
+                        if '}' in clean_token:
                             self.current_state = JsonState.EXPECT_END_BRACE
+                            if clean_token.count('}') >= 2:
+                                self.current_state = JsonState.DONE
                             self.current_buffer = ""
+                        elif ',' in clean_token:
+                            self.current_state = JsonState.EXPECT_PARAM_KEY
+                            self.current_buffer = ""
+                            if clean_token.endswith(',"'):
+                                self.current_buffer = '"'
                         else:
-                            if '}' in clean_token:
-                                self.current_state = JsonState.EXPECT_END_BRACE
-                            else:
-                                self.current_state = JsonState.EXPECT_PARAM_KEY
+                            self.current_state = JsonState.EXPECT_PARAM_NEXT
                             self.current_buffer = ""
 
             case JsonState.EXPECT_PARAM_NEXT:
@@ -424,6 +490,8 @@ class JsonConstraint(BaseModel):
                     self.current_state = JsonState.EXPECT_PARAM_KEY
                 elif '}' in token_str:
                     self.current_state = JsonState.EXPECT_END_BRACE
+                    if token_str.count('}') >= 2:
+                        self.current_state = JsonState.DONE
 
             case JsonState.EXPECT_END_BRACE:
                 if '}' in token_str:
@@ -446,4 +514,4 @@ class JsonConstraint(BaseModel):
         """Réinitialise la machine à états pour un nouveau prompt."""
         self.current_state = JsonState.EXPECT_BRACE_OPEN
         self.current_buffer = ''
-        self.context_stack = []
+        self.context_stack.clear()
