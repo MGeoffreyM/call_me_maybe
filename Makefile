@@ -6,7 +6,7 @@
 #    By: geoffrey <geoffrey@student.42.fr>          +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2026/05/15 12:07:08 by gematura          #+#    #+#              #
-#    Updated: 2026/05/23 15:15:23 by geoffrey         ###   ########.fr        #
+#    Updated: 2026/05/27 12:21:06 by geoffrey         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -40,7 +40,7 @@ run-smollm2:
 test:
 	@printf '$(BLUE)Lancement de la suite de tests...$(RESET)\n'
 	uv run python -m src --functions_definition data/test_input/functions_definition.json --input data/test_input/test_extrem_prompts.json --output data/output/test_extrem_results.json $(ARGS)
-	uv run python -m src --functions_definition data/test_input/functions_stress_test.json --input data/test_input/prompts_stress_test.json --output data/output/test_stress_results.json $(ARGS)
+	uv run python -m src --functions_definition data/test_input/test_stress_functions.json --input data/test_input/test_stress_prompts.json --output data/output/test_stress_results.json $(ARGS)
 	uv run python -m src --functions_definition data/test_input/test_complex_functions.json --input data/test_input/test_complex_prompts.json --output data/output/test_complex_results.json $(ARGS)
 	-uv run python -m src --functions_definition data/test_input/functions_definition.json --input data/test_input/invalid_prompts_format.json $(ARGS)
 	-uv run python -m src --functions_definition data/test_input/invalid_functions_format.json --input data/test_input/functions_calling_tests.json $(ARGS)
@@ -55,11 +55,8 @@ clean:
 	rm -rf .mypy_cache .pytest_cache
 	find . -type d -name '__pycache__' -exec rm -rf {} +
 	uv clean --force
-
-clean-test:
 	@printf '$(BLUE)Nettoyage des fichiers tests$(RESET)\n'
 	rm -rf data/output data/log
-	
 
 fclean: clean
 	@printf "$(BLUE)Suppression de l'environnement virtuel...$(RESET)\n"

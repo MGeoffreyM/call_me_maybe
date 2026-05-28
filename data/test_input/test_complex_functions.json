@@ -49,5 +49,51 @@
     "returns": {
       "type": "string"
     }
+  },
+  {
+    "name": "fn_create_user_profile",
+    "description": "Create a new user profile with a detailed address.",
+    "parameters": {
+      "username": {
+        "type": "string"
+      },
+      "address": {
+        "type": "object",
+        "properties": {
+          "city": {
+            "type": "string"
+          },
+          "zip_code": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "returns": {
+      "type": "boolean"
+    }
+  },
+  {
+    "name": "fn_configure_server",
+    "description": "Configure a server with nested network settings.",
+    "parameters": {
+      "server_name": {
+        "type": "string"
+      },
+      "network": {
+        "type": "object",
+        "properties": {
+          "ip_address": {
+            "type": "string"
+          },
+          "is_secure": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "returns": {
+      "type": "boolean"
+    }
   }
 ]

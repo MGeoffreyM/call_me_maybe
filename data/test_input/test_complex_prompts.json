@@ -9,6 +9,12 @@
     "prompt": "Create an active workflow named 'Math Pipeline'. For its primary action, I want you to add the numbers 42 and 84 together."
   },
   {
-    "prompt": "Run a workflow called 'Test Sequence' that is currently NOT active. Its primary action should be adding 9999999999 and -0.5."
+    "prompt": "Run a workflow called 'Test Sequence' that is currently NOT active. Its primary action should be adding 5486325 and -0.5."
+  },
+  {
+    "prompt": "Register a new user named 'Alice'. For her address, she lives in 'Paris' with the zip code 75001."
+  },
+  {
+    "prompt": "Set up a server named 'ProdDB'. Its network configuration should use the IP '192.168.1.100' and make sure it is secure."
   }
 ]

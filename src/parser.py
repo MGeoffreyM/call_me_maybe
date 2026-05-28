@@ -17,6 +17,10 @@ logger = logging.getLogger(__name__)
 class ParameterProperty(BaseModel):
     """Propriétés d'un paramètre de fonction (ex: type)."""
     type: str
+    properties: dict[str, 'ParameterProperty'] | None = None
+
+
+ParameterProperty.model_rebuild()
 
 
 class Function(BaseModel):
