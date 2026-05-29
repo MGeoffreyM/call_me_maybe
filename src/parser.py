@@ -51,6 +51,7 @@ class Parser(BaseModel):
         """
         try:
             with open(func_file, 'r', encoding='utf-8') as f:
+                # json.load lit le fichier et renvoie un dictionnaire.
                 data_func = json.load(f)
                 self.list_function = TypeAdapter(
                     list[Function]).validate_python(data_func)

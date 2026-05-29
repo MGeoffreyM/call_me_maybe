@@ -8,7 +8,7 @@ fournies.
 import sys
 import json
 import logging
-from typing import ClassVar, Any
+from typing import ClassVar, Any, cast
 from enum import Enum, auto
 import numpy as np
 from pydantic import BaseModel, Field, model_validator
@@ -48,7 +48,7 @@ class JsonConstraint(BaseModel):
 
     current_state: JsonState = Field(default=JsonState.EXPECT_BRACE_OPEN)
     current_buffer: str = Field(default='')
-    _mem_cache: ClassVar[dict[tuple, np.ndarray]] = {}
+    _mem_cache: ClassVar[dict[tuple[Any, ...], np.ndarray]] = {}
 
     context_stack: list[dict[str, Any]] = Field(default_factory=list)
 
@@ -93,6 +93,7 @@ class JsonConstraint(BaseModel):
         all_key: list[str] = ['"name":"', '","parameters":{', ':']
 
         def add_keys(props: dict[str, Any]) -> None:
+            """Ajoute la cle"""
             for k, p in props.items():
                 all_key.append(f'"{k}"')
                 if getattr(p, 'properties', None) is not None:
@@ -148,7 +149,7 @@ class JsonConstraint(BaseModel):
 
         return self
 
-    def constrain_logits(self, logits: np.ndarray) -> np.ndarray:
+    def constrain_logits(self, logits: np.ndarray) -> np.ndarray[Any]:
         """Applique un masque d'infini négatif sur les logits interdits."""
         ctx_keys = tuple(self.current_context["remaining"].keys()) \
             if self.current_context else None
@@ -170,14 +171,16 @@ class JsonConstraint(BaseModel):
                 case JsonState.EXPECT_NAME_KEY_PREFIX:
                     target_string = '"name":"'
                     if self.current_buffer != target_string:
-                        for token_str, token_id in self.valid_key_tokens.items():
+                        for token_str, token_id in self.valid_key_tokens.items(
+                        ):
                             real_token = self._real_str(token_str)
                             potential_buffer = self.current_buffer + real_token
                             if target_string.startswith(potential_buffer):
                                 mask[token_id] = 0.0
 
                 case JsonState.EXPECT_NAME_VALUE:
-                    if any(self.current_buffer == f.name for f in self.allowed_functions):
+                    if any(self.current_buffer == f.name for f
+                           in self.allowed_functions):
                         id_quote = self.json_symbols.get('"')
                         if id_quote is not None:
                             mask[id_quote] = 0.0
@@ -185,13 +188,15 @@ class JsonConstraint(BaseModel):
                     for token_str, token_id in self.valid_name_tokens.items():
                         real_token = self._real_str(token_str)
                         potential_buffer = self.current_buffer + real_token
-                        if any(func.name.startswith(potential_buffer) for func in self.allowed_functions):
+                        if any(func.name.startswith(potential_buffer) for func
+                               in self.allowed_functions):
                             mask[token_id] = 0.0
 
                 case JsonState.EXPECT_PARAM_KEY_PREFIX:
                     target_string = ',"parameters":{'
                     if self.current_buffer != target_string:
-                        for token_str, token_id in self.valid_key_tokens.items():
+                        for token_str, token_id in self.valid_key_tokens.items(
+                        ):
                             real_token = self._real_str(token_str)
                             potential_buffer = self.current_buffer + real_token
                             if target_string.startswith(potential_buffer):
@@ -205,17 +210,21 @@ class JsonConstraint(BaseModel):
                             if id_brace is not None:
                                 mask[id_brace] = 0.0
 
-                        valid_targets = [f'"{k}"' for k in ctx["remaining"].keys()]
-                        for token_str, token_id in self.valid_key_tokens.items():
+                        valid_targets = [f'"{k}"' for k
+                                         in ctx["remaining"].keys()]
+                        for token_str, token_id in self.valid_key_tokens.items(
+                        ):
                             real_token = self._real_str(token_str)
                             potential_buffer = self.current_buffer + real_token
-                            if any(target.startswith(potential_buffer) for target in valid_targets):
+                            if any(target.startswith(potential_buffer)
+                                   for target in valid_targets):
                                 mask[token_id] = 0.0
 
                 case JsonState.EXPECT_PARAM_COLON:
                     target_string = ':'
                     if self.current_buffer != target_string:
-                        for token_str, token_id in self.valid_key_tokens.items():
+                        for token_str, token_id in self.valid_key_tokens.items(
+                        ):
                             real_token = self._real_str(token_str)
                             potential_buffer = self.current_buffer + real_token
                             if target_string.startswith(potential_buffer):
@@ -234,23 +243,30 @@ class JsonConstraint(BaseModel):
 
                         elif param_type in ['number', 'integer', 'float']:
                             if len(self.current_buffer.strip()) < 40:
-                                for token_str, token_id in self.valid_number_tokens.items():
+                                for token_str, token_id in \
+                                        self.valid_number_tokens.items():
                                     real_token = self._real_str(token_str)
-                                    if ' ' in real_token and len(self.current_buffer.strip()) > 0:
+                                    if ' ' in real_token and len(
+                                            self.current_buffer.strip()) > 0:
                                         continue
-                                    if '-' in real_token and len(self.current_buffer.strip()) > 0:
+                                    if '-' in real_token and len(
+                                            self.current_buffer.strip()) > 0:
                                         continue
-                                    if '.' in self.current_buffer and '.' in real_token:
+                                    if '.' in self.current_buffer and '.' \
+                                            in real_token:
                                         continue
                                     mask[token_id] = 0.0
 
-                            has_digit = any(char.isdigit() for char in self.current_buffer)
+                            has_digit = any(char.isdigit() for char
+                                            in self.current_buffer)
                             if has_digit:
                                 id_virgule = self.json_symbols.get(',')
                                 id_brace = self.json_symbols.get('}')
-                                if len(remaining_params) > 1 and id_virgule is not None:
+                                if len(remaining_params) > 1 and id_virgule \
+                                        is not None:
                                     mask[id_virgule] = 0.0
-                                elif len(remaining_params) == 1 and id_brace is not None:
+                                elif len(remaining_params) == 1 and id_brace \
+                                        is not None:
                                     mask[id_brace] = 0.0
 
                         elif param_type == 'string':
@@ -259,8 +275,6 @@ class JsonConstraint(BaseModel):
                                 if id_quote is not None:
                                     mask[id_quote] = 0.0
                             else:
-                                # Pour les strings en cours, on autorise tout par défaut dans le masque (0.0 partout)
-                                # Le filtrage dynamique se fera après l'application du masque
                                 mask = np.zeros(logits.shape)
 
                         elif param_type == 'boolean':
@@ -268,15 +282,23 @@ class JsonConstraint(BaseModel):
                             if buffer_lower in ['true', 'false']:
                                 id_virgule = self.json_symbols.get(',')
                                 id_brace = self.json_symbols.get('}')
-                                if len(remaining_params) > 1 and id_virgule is not None:
+                                if len(remaining_params) > 1 and id_virgule \
+                                        is not None:
                                     mask[id_virgule] = 0.0
-                                elif len(remaining_params) == 1 and id_brace is not None:
+                                elif len(remaining_params) == 1 and id_brace \
+                                        is not None:
                                     mask[id_brace] = 0.0
                             else:
-                                for token_str, token_id in self.valid_boolean_tokens.items():
-                                    real_token = self._real_str(token_str).lower()
-                                    potential_buffer = buffer_lower + real_token
-                                    if 'true'.startswith(potential_buffer) or 'false'.startswith(potential_buffer):
+                                for token_str, token_id in \
+                                        self.valid_boolean_tokens.items():
+                                    real_token = self._real_str(
+                                        token_str).lower()
+                                    potential_buffer = (
+                                        buffer_lower + real_token
+                                    )
+                                    if 'true'.startswith(potential_buffer) or\
+                                            'false'.startswith(
+                                                potential_buffer):
                                         mask[token_id] = 0.0
                         else:
                             # Types inconnus : on laisse le LLM libre
@@ -287,9 +309,11 @@ class JsonConstraint(BaseModel):
                     if ctx is not None:
                         id_virgule = self.json_symbols.get(',')
                         id_brace = self.json_symbols.get('}')
-                        if len(ctx["remaining"]) > 0 and id_virgule is not None:
+                        if len(ctx["remaining"]) > 0 and id_virgule \
+                                is not None:
                             mask[id_virgule] = 0.0
-                        elif len(ctx["remaining"]) == 0 and id_brace is not None:
+                        elif len(ctx["remaining"]) == 0 and id_brace \
+                                is not None:
                             mask[id_brace] = 0.0
 
                 case JsonState.EXPECT_END_BRACE:
@@ -307,11 +331,12 @@ class JsonConstraint(BaseModel):
         # 2. On applique le masque aux VRAIS logits du prompt en cours
         logits_contraints = logits + mask
 
-        # 3. Traitement dynamique spécifique pour les chaînes de caractères (qui dépend des vrais logits)
+        # 3. Traitement dynamique spécifique pour les chaînes de caractères
         if self.current_state == JsonState.EXPECT_PARAM_VALUE:
             ctx = self.current_context
-            if ctx is not None and ctx["current_type"] == 'string' and self.current_buffer != "":
-                
+            if ctx is not None and ctx[
+                    "current_type"] == 'string' and self.current_buffer != "":
+
                 # Circuit Breaker (Anti-hallucinations infinies)
                 is_looping = False
                 if len(self.current_buffer) > 10:
@@ -320,7 +345,7 @@ class JsonConstraint(BaseModel):
                         if self.current_buffer.count(pattern) >= 4:
                             is_looping = True
                             break
-                
+
                 if is_looping:
                     logits_contraints = np.full(logits.shape, -np.inf)
                     id_quote = self.json_symbols.get('"')
@@ -328,11 +353,13 @@ class JsonConstraint(BaseModel):
                         logits_contraints[id_quote] = logits[id_quote]
                     return logits_contraints
 
-                # Logit Boosting pour forcer la fermeture des quotes (Méga-Tokens)
+                # Logit Boosting pour forcer la fermeture des quotes
                 id_quote = self.json_symbols.get('"')
                 if id_quote is not None:
                     max_blocked_logit = -np.inf
-                    blocked_lists = self.quote_comma_tokens + self.quote_brace_tokens
+                    blocked_lists = (
+                        self.quote_comma_tokens + self.quote_brace_tokens
+                    )
 
                     for t_id in blocked_lists:
                         if logits[t_id] > max_blocked_logit:
@@ -344,27 +371,23 @@ class JsonConstraint(BaseModel):
                     for t_id in blocked_lists:
                         logits_contraints[t_id] = -np.inf
 
-        return logits_contraints
+        return cast(np.ndarray, logits_contraints)
 
     def _handle_closing_braces(self, brace_count: int) -> None:
-        """Gère la fermeture d'un ou plusieurs objets JSON et remonte dans la pile."""
+        """Gère la fermeture d'un ou plusieurs objets JSON et remonte dans
+        la pile."""
         for _ in range(brace_count):
             if self.current_context is not None:
-                # 1. On dépile le contexte actuel (fin d'un objet 'parameters' ou d'un sous-objet)
                 self.pop_context()
-                
+
                 if self.current_context is not None:
-                    # 2A. Il reste des parents : on supprime la clé qu'on vient de valider
                     parent_ctx = self.current_context
                     if parent_ctx["current_key"] in parent_ctx["remaining"]:
                         del parent_ctx["remaining"][parent_ctx["current_key"]]
                     self.current_state = JsonState.EXPECT_PARAM_NEXT
                 else:
-                    # 2B. La pile est vide : on vient de fermer les 'parameters' racines.
-                    # Il FAUT fermer l'objet principal de la fonction avec une ultime accolade.
                     self.current_state = JsonState.EXPECT_END_BRACE
             else:
-                # 3. La pile était déjà vide : l'ultime accolade vient d'être générée.
                 self.current_state = JsonState.DONE
                 break
         self.current_buffer = ""
@@ -433,18 +456,20 @@ class JsonConstraint(BaseModel):
                 if param_type == 'object':
                     if '{' in token_str:
                         sub_props = ctx.get("current_properties")
-                        
+
                         if sub_props is not None:
                             self.push_context("nested_object", sub_props)
-                            
+
                             if len(sub_props) == 0:
                                 self.current_state = JsonState.EXPECT_END_BRACE
                             else:
                                 self.current_state = JsonState.EXPECT_PARAM_KEY
                         else:
                             self.push_context("sub_function_root", {})
-                            self.current_state = JsonState.EXPECT_NAME_KEY_PREFIX
-                            
+                            self.current_state = (
+                                JsonState.EXPECT_NAME_KEY_PREFIX
+                            )
+
                         self.current_buffer = ""
 
                 elif param_type == 'string':
